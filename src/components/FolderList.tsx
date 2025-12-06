@@ -34,7 +34,7 @@ export const FolderList: React.FC<FolderListProps> = ({
     return (
         <div className={css.container}>
             <div className={css.header}>
-                <h2 className={css.title}>Library</h2>
+                <h2 className={css.title}>AI Image Gallery</h2>
                 <button
                     className={css.addButton}
                     onClick={() => setIsCreating(true)}

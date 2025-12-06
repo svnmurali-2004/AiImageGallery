@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, FolderPlus, Image as ImageIcon } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 import { Layout } from './components/Layout';
 import { FolderList } from './components/FolderList';
@@ -426,13 +426,40 @@ function App() {
           ) : (
             <div style={{
               display: 'flex',
+              flexDirection: 'column',
               height: '100%',
               alignItems: 'center',
               justifyContent: 'center',
               color: 'var(--text-secondary)',
-              flex: 1
+              flex: 1,
+              gap: 16
             }}>
-              Select or create a folder to begin.
+              <div style={{
+                background: 'var(--bg-card)',
+                padding: 40,
+                borderRadius: 16,
+                border: '1px solid var(--border-color)',
+                textAlign: 'center',
+                maxWidth: 400
+              }}>
+                {folders.length === 0 ? (
+                  <>
+                    <FolderPlus size={48} style={{ marginBottom: 16, color: 'var(--accent-primary)', opacity: 0.8 }} />
+                    <h3 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)' }}>Welcome to AI Media Finder</h3>
+                    <p style={{ margin: 0, fontSize: '0.95rem' }}>
+                      To get started, create a new folder in the sidebar to organize your images.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <ImageIcon size={48} style={{ marginBottom: 16, color: 'var(--text-secondary)', opacity: 0.5 }} />
+                    <h3 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)' }}>No Folder Selected</h3>
+                    <p style={{ margin: 0, fontSize: '0.95rem' }}>
+                      Select a folder from the sidebar to view your collection.
+                    </p>
+                  </>
+                )}
+              </div>
             </div>
           )}
         </div>
