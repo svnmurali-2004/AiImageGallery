@@ -45,6 +45,10 @@ function App() {
 
   // Update images when we pick a different folder
   useEffect(() => {
+    // Always clear search when changing folders
+    setSearchResults([]);
+    setSearchReferenceImage(null);
+
     if (selectedFolderId) {
       setPage(0);
       loadImages(selectedFolderId, 0);
@@ -312,7 +316,6 @@ function App() {
           selectedFolderId={selectedFolderId}
           onSelectFolder={(id) => {
             setSelectedFolderId(id);
-            setSearchResults([]); // Clear search when changing folder
           }}
           onCreateFolder={handleCreateFolder}
           onDeleteFolder={handleDeleteFolder}
