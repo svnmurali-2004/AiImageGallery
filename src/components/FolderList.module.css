@@ -1,0 +1,121 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 16px;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+}
+
+.title {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.addButton {
+    padding: 8px;
+    border-radius: 8px;
+    color: var(--text-primary);
+    background-color: var(--accent-primary);
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.addButton:hover {
+    background-color: var(--accent-hover);
+}
+
+.createForm {
+    margin-bottom: 16px;
+}
+
+.input {
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+    outline: none;
+}
+
+.input:focus {
+    border-color: var(--accent-primary);
+}
+
+.list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.item {
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.item:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+}
+
+.item.selected {
+    background-color: rgba(99, 102, 241, 0.15);
+    color: var(--accent-primary);
+}
+
+.icon {
+    margin-right: 12px;
+}
+
+.name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.95rem;
+}
+
+.deleteButton {
+    opacity: 0.4;
+    color: var(--danger);
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.2s, background-color 0.2s;
+}
+
+.deleteButton:hover {
+    opacity: 1;
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+.item:hover .deleteButton {
+    opacity: 1;
+}
+
+.emptyState {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin-top: 20px;
+    font-style: italic;
+}
