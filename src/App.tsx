@@ -22,6 +22,15 @@ function App() {
   const [isModelReady, setIsModelReady] = useState(false);
 
   const contentRef = useRef<HTMLDivElement>(null);
+  const workerRef = useRef<Worker | null>(null);
+
+  useEffect(() => {
+    // Initialize worker
+    workerRef.current = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
+    return () => {
+      workerRef.current?.terminate();
+    };
+  }, []);
 
   // Page stuff
   const [page, setPage] = useState(0);
@@ -146,8 +155,27 @@ function App() {
           const dataUrl = await fileToDataURL(file);
           const imgEl = await loadImage(dataUrl);
 
-          // get image features using the AI model
-          const embedding = await ai.extractFeatures(imgEl);
+          // Create bitmap for worker
+          const bitmap = await createImageBitmap(imgEl);
+
+          // Process in worker
+          const embeddingPromise = new Promise<number[]>((resolve, reject) => {
+            if (!workerRef.current) return reject('No worker');
+
+            const id = crypto.randomUUID();
+            const handler = (e: MessageEvent) => {
+              if (e.data.id === id) {
+                workerRef.current?.removeEventListener('message', handler);
+                if (e.data.error) reject(e.data.error);
+                else resolve(e.data.embedding);
+              }
+            };
+
+            workerRef.current.addEventListener('message', handler);
+            workerRef.current.postMessage({ id, bitmap }, [bitmap]); // Zero-copy transfer
+          });
+
+          const embedding = await embeddingPromise;
 
           const record: ImageRecord = {
             id: crypto.randomUUID(),
@@ -163,8 +191,6 @@ function App() {
           await db.saveImage(record);
           newImages.push(record);
 
-          // pause a bit to let the screen update
-          await new Promise(r => setTimeout(r, 10));
         } catch (err) {
           console.error(`Failed to process ${file.name}:`, err);
           toast.error(`Failed to process ${file.name}`, { id: toastId });

@@ -26,12 +26,11 @@ export const loadModel = async () => {
     return model;
 };
 
-export const extractFeatures = async (imgElement: HTMLImageElement): Promise<number[]> => {
+export const extractFeatures = async (imgElement: HTMLImageElement | ImageBitmap | ImageData): Promise<number[]> => {
     const model = await loadModel();
 
-    // clean up memory
     const embedding = tf.tidy(() => {
-        return model.infer(imgElement, true);
+        return model.infer(imgElement as any, true);
     });
 
     if (embedding instanceof tf.Tensor) {
