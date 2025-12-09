@@ -13,6 +13,7 @@
     "@tensorflow-models/mobilenet": "^2.1.1",
     "@tensorflow/tfjs": "^4.22.0",
     "@tensorflow/tfjs-backend-wasm": "^4.22.0",
+    "@vladmandic/face-api": "^1.7.15",
     "clsx": "^2.1.1",
     "idb": "^8.0.3",
     "lucide-react": "^0.556.0",

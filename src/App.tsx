@@ -23,6 +23,9 @@ function App() {
 
   const contentRef = useRef<HTMLDivElement>(null);
 
+  // Worker removed. Main thread processing.
+  // const workerRef = useRef<Worker | null>(null);
+
   // Page stuff
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
@@ -32,6 +35,7 @@ function App() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchReferenceImage, setSearchReferenceImage] = useState<string | null>(null);
+  const [searchMode, setSearchMode] = useState<'visual' | 'face'>('visual');
 
   // Load folders when the app starts
   useEffect(() => {
@@ -45,6 +49,10 @@ function App() {
 
   // Update images when we pick a different folder
   useEffect(() => {
+    // Always clear search when changing folders
+    setSearchResults([]);
+    setSearchReferenceImage(null);
+
     if (selectedFolderId) {
       setPage(0);
       loadImages(selectedFolderId, 0);
@@ -142,15 +150,34 @@ function App() {
           const dataUrl = await fileToDataURL(file);
           const imgEl = await loadImage(dataUrl);
 
-          // get image features using the AI model
-          const embedding = await ai.extractFeatures(imgEl);
+          // DIRECT MAIN THREAD PROCESSING
+          let embedding: number[] = [];
+          try {
+            // 1. MobileNet
+            embedding = await ai.extractFeatures(imgEl);
+          } catch (e) {
+            console.error("MobileNet extraction failed", e);
+          }
+
+          let faceEmbeddings: number[][] = [];
+          try {
+            // 2. FaceAPI (Now returns number[][])
+            const fFeatures = await ai.extractFaceFeatures(imgEl);
+            if (fFeatures && fFeatures.length > 0) {
+              faceEmbeddings = fFeatures;
+            }
+          } catch (e) {
+            console.error("Face extraction failed/no face", e);
+          }
 
           const record: ImageRecord = {
             id: crypto.randomUUID(),
             folderId: selectedFolderId,
             name: file.name,
             dataUrl,
-            embedding,
+            embedding: embedding,
+            faceEmbedding: faceEmbeddings.length > 0 ? faceEmbeddings[0] : undefined, // Legacy support
+            faceEmbeddings: faceEmbeddings, // New support
             createdAt: Date.now(),
             width: imgEl.width,
             height: imgEl.height
@@ -159,8 +186,6 @@ function App() {
           await db.saveImage(record);
           newImages.push(record);
 
-          // pause a bit to let the screen update
-          await new Promise(r => setTimeout(r, 10));
         } catch (err) {
           console.error(`Failed to process ${file.name}:`, err);
           toast.error(`Failed to process ${file.name}`, { id: toastId });
@@ -196,30 +221,68 @@ function App() {
     }
   };
 
-  const handleSearch = async (file: File) => {
-    if (!isModelReady) return;
+  const executeSearch = async (dataUrl: string) => {
+    if (!selectedFolderId || !isModelReady) return;
+
     setIsSearching(true);
     const toastId = toast.loading('Searching...');
 
     try {
-      const dataUrl = await fileToDataURL(file);
-      setSearchReferenceImage(dataUrl); // Set thumbnail
-
       const imgEl = await loadImage(dataUrl);
-      const searchEmbedding = await ai.extractFeatures(imgEl);
 
-      if (!selectedFolderId) return;
+      let searchEmbeddings: number[][] = [];
+
+      if (searchMode === 'face') {
+        searchEmbeddings = await ai.extractFaceFeatures(imgEl);
+        if (searchEmbeddings.length === 0) {
+          toast.error("No face detected in search image!", { id: toastId });
+          setIsSearching(false);
+          setSearchResults([]); // Clear results if no face found
+          return;
+        }
+      } else {
+        // Visual search still returns number[] but we can wrap it or keep it separate.
+        // For simplicity, let's keep visual separate logic or wrap it:
+        const visualEmb = await ai.extractFeatures(imgEl);
+        searchEmbeddings = [visualEmb];
+      }
+
       const allImagesInFolder = await db.getImagesInFolder(selectedFolderId);
 
       // check against all my images
-      const results: SearchResult[] = allImagesInFolder.map(img => ({
-        ...img,
-        score: ai.calculateSimilarity(img.embedding, searchEmbedding)
-      }));
+      const results: SearchResult[] = allImagesInFolder.map(img => {
+        let score = 0;
+
+        if (searchMode === 'face') {
+          // Compare ANY face in search vs ANY face in record
+          // We want the BEST match (highest similarity)
+          let bestMatch = 0;
+
+          const targetFaces = img.faceEmbeddings || (img.faceEmbedding ? [img.faceEmbedding] : []);
+
+          if (targetFaces.length > 0) {
+            for (const searchFace of searchEmbeddings) {
+              for (const targetFace of targetFaces) {
+                const sim = ai.calculateFaceMatch(targetFace, searchFace);
+                if (sim > bestMatch) bestMatch = sim;
+              }
+            }
+            score = bestMatch;
+          } else {
+            score = 0; // No face in stored image
+          }
+        } else {
+          // Visual Search (using first embedding as it's global)
+          if (searchEmbeddings.length > 0) {
+            score = ai.calculateSimilarity(img.embedding, searchEmbeddings[0]);
+          }
+        }
+        return { ...img, score };
+      });
 
       // show the best matches first
       const sorted = results
-        .filter(r => r.score > 0.5) // Optional threshold
+        .filter(r => r.score > (searchMode === 'face' ? 0.4 : 0.5)) // Lower threshold for face match distance
         .sort((a, b) => b.score - a.score);
 
       setSearchResults(sorted);
@@ -229,6 +292,24 @@ function App() {
       toast.error('Search failed', { id: toastId });
     } finally {
       setIsSearching(false);
+    }
+  };
+
+  // Trigger search when reference image or mode changes
+  useEffect(() => {
+    if (searchReferenceImage && isModelReady && selectedFolderId) {
+      executeSearch(searchReferenceImage);
+    }
+  }, [searchReferenceImage, searchMode, isModelReady, selectedFolderId]);
+
+  const handleSearch = async (file: File) => {
+    if (!isModelReady) return;
+    try {
+      const dataUrl = await fileToDataURL(file);
+      setSearchReferenceImage(dataUrl); // This will trigger the effect
+    } catch (err) {
+      console.error("Failed to read search file", err);
+      toast.error("Failed to read search file");
     }
   };
 
@@ -312,7 +393,6 @@ function App() {
           selectedFolderId={selectedFolderId}
           onSelectFolder={(id) => {
             setSelectedFolderId(id);
-            setSearchResults([]); // Clear search when changing folder
           }}
           onCreateFolder={handleCreateFolder}
           onDeleteFolder={handleDeleteFolder}
@@ -368,33 +448,66 @@ function App() {
                     )}
                   </div>
 
-                  <label
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '8px 16px',
-                      borderRadius: 8,
-                      backgroundColor: 'var(--bg-card)',
-                      color: 'var(--text-primary)',
-                      border: '1px solid var(--border-color)',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <Search size={18} />
-                    Visual Search
-                    <input
-                      type="file"
-                      hidden
-                      accept="image/*"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          handleSearch(e.target.files[0]);
-                          e.target.value = '';
-                        }
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ display: 'flex', background: 'var(--bg-card)', padding: 4, borderRadius: 8, border: '1px solid var(--border-color)' }}>
+                      <button
+                        onClick={() => setSearchMode('visual')}
+                        style={{
+                          background: searchMode === 'visual' ? 'var(--accent-primary)' : 'transparent',
+                          color: searchMode === 'visual' ? 'white' : 'var(--text-secondary)',
+                          border: 'none',
+                          padding: '4px 12px',
+                          borderRadius: 4,
+                          cursor: 'pointer',
+                          fontSize: '0.9rem'
+                        }}
+                      >
+                        Scene
+                      </button>
+                      <button
+                        onClick={() => setSearchMode('face')}
+                        style={{
+                          background: searchMode === 'face' ? 'var(--accent-primary)' : 'transparent',
+                          color: searchMode === 'face' ? 'white' : 'var(--text-secondary)',
+                          border: 'none',
+                          padding: '4px 12px',
+                          borderRadius: 4,
+                          cursor: 'pointer',
+                          fontSize: '0.9rem'
+                        }}
+                      >
+                        Face
+                      </button>
+                    </div>
+
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '8px 16px',
+                        borderRadius: 8,
+                        backgroundColor: 'var(--bg-card)',
+                        color: 'var(--text-primary)',
+                        border: '1px solid var(--border-color)',
+                        cursor: 'pointer'
                       }}
-                    />
-                  </label>
+                    >
+                      <Search size={18} />
+                      {searchMode === 'face' ? 'Face Search' : 'Visual Search'}
+                      <input
+                        type="file"
+                        hidden
+                        accept="image/*"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            handleSearch(e.target.files[0]);
+                            e.target.value = '';
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
                 </div>
 
                 {!isShowingValues && (

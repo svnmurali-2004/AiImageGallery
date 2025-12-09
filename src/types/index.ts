@@ -10,6 +10,8 @@ export interface ImageRecord {
     name: string;
     dataUrl: string; // Base64 string
     embedding: number[]; // Feature vector
+    faceEmbedding?: number[]; // Legacy: Single Face feature vector
+    faceEmbeddings?: number[][]; // New: Multiple Face feature vectors
     createdAt: number;
     width: number;
     height: number;
