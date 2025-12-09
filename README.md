@@ -1,85 +1,54 @@
-# AI Image Gallery 📸
+# AI Image Gallery
 
-Hey there! 👋 This is my project, **AI Image Gallery**. Ideally, it's a smart image organizer that runs entirely in your browser. I built this to solve the problem of organizing and finding photos without uploading them to the cloud.
+Hey everyone, this is my final year project. It is an intelligent image gallery that runs completely offline in the browser. I built this to solve the privacy issues with cloud photos - I wanted a way to search and organize photos using AI without ever sending my personal data to a server.
 
-## 🚀 What is this project?
+## What it does
 
-This is a web application that lets you upload images, organize them into folders, and—here's the cool part—**search for images using other images**.
+This application allows you to upload photos and then search through them using AI. It is not just about filenames - the system actually "sees" the content of the image.
 
-It uses Artificial Intelligence right inside your browser to "see" what's in your photos. So if you upload a picture of a cat, it can find all the other cats in your collection!
+The two main capabilities are:
 
-## 🛠️ Technical Implementation
+1. **Scene Search**: You can find photos that look similar. For example, if you upload a photo of a beach, it will find all other beach photos in your gallery.
+2. **Face Search**: You can find specific people. If you upload a photo of your friend, it finds all other photos of them.
 
-I built this using a modern stack. Here's what's under the hood:
+## Key Features
 
-*   **React + TypeScript**: Used for building the user interface. I love TypeScript because it helps catch bugs early!
-*   **Vite**: For super fast development and building.
-*   **TensorFlow.js**: This is the brain of the project. I'm using the **MobileNet** model to analyze images directly in the browser. No Python backend required!
-*   **IndexedDB**: Since LocalStorage is too small for images, I used IndexedDB (via the `idb` library) to store all your folders and image data effectively on your device.
-*   **Web Workers**: To make sure the UI doesn't freeze when processing hundreds of images, I moved the heavy AI computations to a background thread.
+**Privacy First**
+The most important feature is that it is 100% local. I used TensorFlow.js to run the AI models directly on your computer's CPU. No images are ever uploaded to any server.
 
-### 🗂️ Project Structure
-Here is how I organized my code:
-*   `src/components/`: Reusable UI parts like `FolderList`, `ImageGrid`, and the `SearchPanel`.
-*   `src/services/ai.ts`: The "Brain". This file handles loading the MobileNet model and calculating Cosine Similarity.
-*   `src/worker.ts`: A background worker that runs the heavy calculations so the app stays buttery smooth.
-*   `src/db.ts`: Manages the database. It saves images and folders using a schema I designed to handle thousands of records.
+**Multi-Face Recognition (New)**
+I recently upgraded the system to handle group photos. 
+- When you upload a group photo, the system detects and remembers every single face in that image.
+- If you search using a group photo, the system is smart enough to find photos of *any* of the people in that group. It uses a "best match" logic to rank the results.
 
-### ⚡ Performance Optimizations
-I didn't just want it to work; I wanted it to be fast!
-*   **Off-Main-Thread AI**: All image processing happens in `worker.ts`. This means you can keep scrolling and clicking while the AI crunches numbers in the background.
-*   **Zero-Copy Transfer**: I use `createImageBitmap` and transfer the data to the worker without copying it, which saves memory.
-*   **Smart Database Indexing**: In `db.ts`, I created indexes like `by-folder-date` so fetching images is instant, even if you have 10,000 photos.
+**WebAssembly (WASM) Acceleration**
+To make the AI fast without needing a graphics card, I configured it to use WebAssembly. This allows the heavy math calculations to run efficiently on the CPU.
 
-## ✨ Capabilities
+## Technology Stack
 
-*   **Smart Visual Search**: Upload a reference image, and the app will rank your library based on similarity.
-*   **Privacy First**: Since it uses TensorFlow.js and IndexedDB, **zero data leaves your computer**. It's 100% offline-capable.
-*   **Folder Organization**: Create folders and manage your collections easily.
-*   **Drag & Drop**: Seamless upload experience.
+I used a modern web stack to build this:
+- **React & TypeScript**: For the user interface. TypeScript saved me so much time by catching errors early.
+- **TensorFlow.js**: The core AI library.
+- **MobileNet**: The model I used for understanding general scenes and objects.
+- **Face-API.js**: The library I integrated for detecting faces and extracting facial features.
+- **IndexedDB**: LocalStorage was too small, so I used IndexedDB to store the images and their AI embeddings directly in the browser database.
+- **Vite**: The build tool I used for fast development.
 
-## 🤖 How the AI Logic Works (The "Secret Sauce")
+## Challenges I Faced
 
-For the curious, here is how I implemented the search feature:
+**Browser Backend Issues**
+Initially, I had a lot of warnings about "multiple backends registered" because Face-API and TensorFlow were trying to load different things. I had to manually configure the build system (Vite) to alias the library and force everything to use a single WebAssembly backend.
 
-1.  **Feature Extraction**: I use the **MobileNet** model (a pre-trained neural network). Instead of just classifying "cat" or "dog", I chop off the last layer and take the "embedding" (a list of numbers that represents the image's features like shapes, textures, and colors).
-2.  **Cosine Similarity**: When you search, I compare the embedding of your search image with the embeddings of all images in the folder using a mathematical formula called *Cosine Similarity*.
-3.  **Ranking**: The images with the highest similarity score (closer to 1.0) are shown first.
+**Performance vs. Complexity**
+I first tried using Web Workers to keep the UI smooth, but passing large image data back and forth was complicated and buggy. I refactored it to run on the main thread with optimized "WASM" settings, which turned out to be stable and fast enough.
 
-### ⚠️ A Note on Face Recognition
-I noticed something interesting while testing: **This is NOT a Face Recognition app.**
+## How to Run
 
-If you search for *Virat Kohli*, you might get results for *Sachin Tendulkar* with a high similarity score (like 67%).
-*   **Why?** The MobileNet model looks at the **entire scene**—the green cricket field, the blue jersey, the bat, and the posture. To the AI, they both look like "Cricketer in action".
-*   **The Limit**: It doesn't look at fine facial features like nose shape or eye distance. For that, I'd need to implement a specialized library like `face-api.js`.
+1. Clone this repository
+2. Run `npm install` to download the dependencies
+3. Run `npm run dev` to start the server
+
+That is it. Open localhost and you can start uploading images.
 
 ---
 
-## 🧩 Challenges I Faced
-
-*   **Browser Memory Limits**: At first, the app crashed when uploading large 4K images. I fixed this by using `createImageBitmap` to handle images more efficiently.
-*   **UI Freezing**: The AI calculations were too heavy for the main thread, making the buttons unresponsive. Moving logic to a Web Worker was a game-changer!
-
-## 🔮 Future Scope
-
-*   **Face Recognition**: Integration with `face-api.js` to distinguish between specific people.
-*   **Cloud Sync**: Option to backup photos to Google Drive (encrypted, of course!).
-*   **Object Detection**: Drawing boxes around detected objects (like "Dog", "Car") using COCO-SSD.
-
----
-
-## 🏃‍♂️ How to Run This
-
-If you want to run this locally, it's pretty standard:
-
-1.  Clone the repo.
-2.  Install dependencies:
-    ```bash
-    npm install
-    ```
-3.  Fire it up:
-    ```bash
-    npm run dev
-    ```
-
-Check it out and let me know what you think! 🚀

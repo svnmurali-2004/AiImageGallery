@@ -8,9 +8,11 @@ interface SearchPanelProps {
     onClose: () => void;
     results: SearchResult[];
     isSearching: boolean;
+    searchMode: 'visual' | 'face';
+    onToggleMode: (mode: 'visual' | 'face') => void;
 }
 
-export const SearchPanel: React.FC<SearchPanelProps> = ({ onSearch, onClose, results, isSearching }) => {
+export const SearchPanel: React.FC<SearchPanelProps> = ({ onSearch, onClose, results, isSearching, searchMode, onToggleMode }) => {
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -27,6 +29,34 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ onSearch, onClose, res
             <div className={css.panel}>
                 <div className={css.header}>
                     <h2 className={css.title}>Visual Search</h2>
+                    <div className={css.toggles} style={{ display: 'flex', gap: 10, marginRight: 20 }}>
+                        <button
+                            onClick={() => onToggleMode('visual')}
+                            style={{
+                                background: searchMode === 'visual' ? 'var(--accent-primary)' : 'var(--bg-card)',
+                                color: searchMode === 'visual' ? 'white' : 'var(--text-secondary)',
+                                border: '1px solid var(--border-color)',
+                                padding: '4px 8px',
+                                borderRadius: 4,
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Scene
+                        </button>
+                        <button
+                            onClick={() => onToggleMode('face')}
+                            style={{
+                                background: searchMode === 'face' ? 'var(--accent-primary)' : 'var(--bg-card)',
+                                color: searchMode === 'face' ? 'white' : 'var(--text-secondary)',
+                                border: '1px solid var(--border-color)',
+                                padding: '4px 8px',
+                                borderRadius: 4,
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Face
+                        </button>
+                    </div>
                     <button onClick={onClose} className={css.closeButton}>
                         <X size={24} />
                     </button>
